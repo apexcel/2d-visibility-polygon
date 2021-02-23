@@ -1,25 +1,35 @@
 import { BLOCK_SIZE, WIDTH, HEIGHT, ROWS, COLS } from './configs.js';
+import Edge from './Edge.js'
+import Ray from './Ray.js'
 import * as draw from './draw.js';
 
 const LEFT = 0;
 const UP = 1;
 const DOWN = 2;
 const RIGHT = 3;
+let lightsOn = false;
 
-function clickHandler(e, board) {
+const clickHandler = (e, board) => {
     const targetX = e.offsetX, targetY = e.offsetY;
     const x = Math.floor(targetX / BLOCK_SIZE), y = Math.floor(targetY / BLOCK_SIZE);
 
     if (e.button === 0) {
         board.world[y][x].exist = !board.world[y][x].exist;
-        board.convToEdge();
+        board.extractEdges();
+        board.calcVisibility(x, y, 1);
         draw.drawFrame(board);
     }
-        board.calcVisibility(x, y, 1);
-    if (e.button === 1) {
-        e.preventDefault();
+    if (e.button === 2) {
+        lightsOn = true;
+    }
+}
+
+const onLight = (e, board) => {
+    if (lightsOn) {
+        const targetX = e.offsetX, targetY = e.offsetY;
+        const x = Math.floor(targetX / BLOCK_SIZE), y = Math.floor(targetY / BLOCK_SIZE);
         if (board.store.length > 1) {
-            console.log(board.store)
+            e.preventDefault();
             for (let i = 0; i < board.store.length - 1; i += 1) {
                 draw.fillTriangle(board.ctx, x, y, board.store[i].x, board.store[i].y, board.store[i + 1].x, board.store[i + 1].y)
             }
@@ -28,30 +38,14 @@ function clickHandler(e, board) {
     }
 }
 
-class Edge {
-    constructor(x1, x2, y1, y2) {
-        this.x1 = x1;
-        this.x2 = x2;
-        this.y1 = y1;
-        this.y2 = y2;
-    }
-}
-
-class RayData {
-    constructor(angle, x, y) {
-        this.angle = angle;
-        this.x = x;
-        this.y = y;
-    }
-}
-
 class Board {
     constructor() {
         this.canvas = document.createElement('canvas');
+        this.canvas.oncontextmenu = () => false;
         this.ctx = this.canvas.getContext('2d');
         this.ctx.canvas.width = WIDTH;
         this.ctx.canvas.height = HEIGHT;
-        this.ctx.canvas.style.background = 'black';
+        this.ctx.canvas.style.background = '#1b1b1b';
         this.ctx.scale(BLOCK_SIZE, BLOCK_SIZE);
 
         this.init();
@@ -71,10 +65,30 @@ class Board {
         this.edges = [];
         this.store = [];
         this.canvas.addEventListener('mousedown', e => clickHandler(e, this));
+        this.canvas.addEventListener('mouseup', () => lightsOn = lightsOn ? false : lightsOn);
+        this.canvas.addEventListener('mousemove', e => onLight(e, this));
     }
 
-    convToEdge = () => {
+    extractEdges = () => {
         this.edges = [];
+
+        const check = (current, edges, adj, ext, dir, coor) => {
+            if (!adj.exist) {
+                if (ext.exist && ext.edgeExist[dir]) {
+                    const endPoint = (dir === LEFT || dir === RIGHT) ? 'y2' : 'x2';
+                    edges[ext.edgeIds[dir]][endPoint] += 1;
+                    current.edgeIds[dir] = ext.edgeIds[dir];
+                }
+                else {
+                    const edge = new Edge(...coor);
+                    const edgeId = edges.length;
+                    edges.push(edge);
+                    current.edgeIds[dir] = edgeId;
+                }
+                current.edgeExist[dir] = true;
+            }
+        };
+
         for (let y = 1; y < ROWS - 1; y += 1) {
             for (let x = 1; x < COLS - 1; x += 1) {
                 const current = this.world[y][x];
@@ -83,90 +97,29 @@ class Board {
                 const down = this.world[y + 1][x];
                 const right = this.world[y][x + 1];
 
-
-                // 현재 블록이 존재하는가
                 if (current.exist) {
                     current.edgeIds = [-1, -1, -1, -1];
                     current.edgeExist = [false, false, false, false];
-                    // 블록 좌측
+                    let coor;
                     if (!current.edgeExist[LEFT]) {
-                        // 현재 블록 왼쪽 라인이 존재하지 않으면
-                        if (!left.exist) {
-                            // 위 블록은 왼쪽 라인이 존재하면 연장 그렇지 않으면 새 라인 생성
-                            if (up.exist && up.edgeExist[LEFT]) {
-                                this.edges[up.edgeIds[LEFT]].y2 += 1;
-                                current.edgeIds[LEFT] = up.edgeIds[LEFT];
-                                current.edgeExist[LEFT] = true;
-                            }
-                            else {
-                                const edge = new Edge(x, x, y, y + 1);
-                                const edgeId = this.edges.length;
-                                this.edges.push(edge);
-
-                                current.edgeIds[LEFT] = edgeId;
-                                current.edgeExist[LEFT] = true;
-                            }
-                        }
+                        coor = [x, x, y, y + 1];
+                        check(current, this.edges, left, up, LEFT, coor);
                     }
-
-                    if (!current.edgeExist[RIGHT]) {
-                        if (!right.exist) {
-                            if (up.exist && up.edgeExist[RIGHT]) {
-                                this.edges[up.edgeIds[RIGHT]].y2 += 1;
-                                current.edgeIds[RIGHT] = up.edgeIds[RIGHT];
-                                current.edgeExist[RIGHT] = true;
-                            }
-                            else {
-                                const edge = new Edge(x + 1, x + 1, y, y + 1);
-                                const edgeId = this.edges.length;
-                                this.edges.push(edge);
-
-                                current.edgeIds[RIGHT] = edgeId;
-                                current.edgeExist[RIGHT] = true;
-                            }
-                        }
-                    }
-
                     if (!current.edgeExist[UP]) {
-                        if (!up.exist) {
-                            if (left.exist && left.edgeExist[UP]) {
-                                this.edges[left.edgeIds[UP]].x2 += 1;
-                                current.edgeIds[UP] = left.edgeIds[UP];
-                                current.edgeExist[UP] = true;
-                            }
-                            else {
-                                const edge = new Edge(x, x + 1, y, y);
-                                const edgeId = this.edges.length;
-                                this.edges.push(edge);
-
-                                current.edgeIds[UP] = edgeId;
-                                current.edgeExist[UP] = true;
-                            }
-                        }
+                        coor = [x, x + 1, y, y];
+                        check(current, this.edges, up, left, UP, coor);
                     }
-
                     if (!current.edgeExist[DOWN]) {
-                        if (!down.exist) {
-                            if (left.exist && left.edgeExist[DOWN]) {
-                                this.edges[left.edgeIds[DOWN]].x2 += 1;
-                                current.edgeIds[DOWN] = left.edgeIds[DOWN];
-                                current.edgeExist[DOWN] = true;
-                            }
-                            else {
-                                const edge = new Edge(x, x + 1, y + 1, y + 1);
-                                const edgeId = this.edges.length;
-                                this.edges.push(edge);
-
-                                current.edgeIds[DOWN] = edgeId;
-                                current.edgeExist[DOWN] = true;
-                            }
-                        }
+                        coor = [x, x + 1, y + 1, y + 1];
+                        check(current, this.edges, down, left, DOWN, coor);
                     }
-
+                    if (!current.edgeExist[RIGHT]) {
+                        coor = [x + 1, x + 1, y, y + 1];
+                        check(current, this.edges, right, up, RIGHT, coor);
+                    }
                 }
             }
         }
-        console.log(this.edges)
     }
 
     calcVisibility = (originX, originY, radius) => {
@@ -193,8 +146,8 @@ class Board {
                         let sdy = edge2.y2 - edge2.y1;
 
                         if (Math.abs(sdx - rayDx) > 0 && Math.abs(sdy - rayDy) > 0) {
-                            let t2 = (rayDx * (edge2.y1 - originY) + rayDy * (originX - edge2.x1)) / (sdx * rayDy - sdy * rayDx);
-                            let t1 = edge2.x1 + sdx * t2 - originX / rayDx;
+                            let t2 = (rayDx * (edge2.y1 - originY)) + (rayDy * (originX - edge2.x1)) / (sdx * rayDy - sdy * rayDx);
+                            let t1 = (edge2.x1 + sdx * t2 - originX) / rayDx;
 
                             if (t1 > 0 && t2 >= 0 && t2 <= 1) {
                                 if (t1 < minT1) {
@@ -206,7 +159,7 @@ class Board {
                             }
                         }
                     })
-                    this.store.push(new RayData(minAng, minPx, minPy));
+                    this.store.push(new Ray(minAng, minPx, minPy));
                 }
             }
         })
