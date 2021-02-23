@@ -10,9 +10,22 @@ function clickHandler(e, board) {
     const targetX = e.offsetX, targetY = e.offsetY;
     const x = Math.floor(targetX / BLOCK_SIZE), y = Math.floor(targetY / BLOCK_SIZE);
 
-    board.tableMap[y][x].exist = !board.tableMap[y][x].exist;
-    board.convToEdge();
-    board.drawBlock();
+    if (e.button === 0) {
+        board.world[y][x].exist = !board.world[y][x].exist;
+        board.convToEdge();
+        draw.drawFrame(board);
+    }
+        board.calcVisibility(x, y, 1);
+    if (e.button === 1) {
+        e.preventDefault();
+        if (board.store.length > 1) {
+            console.log(board.store)
+            for (let i = 0; i < board.store.length - 1; i += 1) {
+                draw.fillTriangle(board.ctx, x, y, board.store[i].x, board.store[i].y, board.store[i + 1].x, board.store[i + 1].y)
+            }
+            draw.fillTriangle(board.ctx, x, y, board.store[board.store.length - 1].x, board.store[board.store.length - 1].y, board.store[0].x, board.store[0].y)
+        }
+    }
 }
 
 class Edge {
@@ -21,6 +34,14 @@ class Edge {
         this.x2 = x2;
         this.y1 = y1;
         this.y2 = y2;
+    }
+}
+
+class RayData {
+    constructor(angle, x, y) {
+        this.angle = angle;
+        this.x = x;
+        this.y = y;
     }
 }
 
@@ -37,10 +58,10 @@ class Board {
     }
 
     init = () => {
-        this.tableMap = Array.from(Array(COLS), () => Array(ROWS));
+        this.world = Array.from(Array(COLS), () => Array(ROWS));
         for (let y = 0; y < ROWS; y += 1) {
             for (let x = 0; x < COLS; x += 1) {
-                this.tableMap[y][x] = {
+                this.world[y][x] = {
                     exist: false,
                     edgeExist: [false, false, false, false],
                     edgeIds: [-1, -1, -1, -1],
@@ -48,42 +69,19 @@ class Board {
             }
         }
         this.edges = [];
+        this.store = [];
         this.canvas.addEventListener('mousedown', e => clickHandler(e, this));
-    }
-
-    drawBlock = () => {
-        this.tableMap.forEach((row, y) => {
-            row.forEach((col, x) => {
-                if (col.exist) {
-                    this.ctx.clearRect(x, y, 1, 1);
-                    draw.fillRect(this.ctx, x, y, BLOCK_SIZE);
-                }
-                else {
-                    this.ctx.clearRect(x, y, 1, 1);
-                }
-            })
-        })
-
-        for (let i = 0; i < this.edges.length; i += 1) {
-            const { x1, x2, y1, y2 } = this.edges[i];
-            draw.line(this.ctx, x1, y1, x2, y2, {
-                strokeStyle: 'wheat',
-                lineWidth: 0.1,
-            })
-            draw.circle(this.ctx, x1, y1, 0.1, 'red');
-            draw.circle(this.ctx, x2, y2, 0.1, 'red');
-        }
     }
 
     convToEdge = () => {
         this.edges = [];
         for (let y = 1; y < ROWS - 1; y += 1) {
             for (let x = 1; x < COLS - 1; x += 1) {
-                const current = this.tableMap[y][x];
-                const left = this.tableMap[y][x - 1];
-                const up = this.tableMap[y - 1][x];
-                const down = this.tableMap[y + 1][x];
-                const right = this.tableMap[y][x + 1];
+                const current = this.world[y][x];
+                const left = this.world[y][x - 1];
+                const up = this.world[y - 1][x];
+                const down = this.world[y + 1][x];
+                const right = this.world[y][x + 1];
 
 
                 // 현재 블록이 존재하는가
@@ -96,13 +94,11 @@ class Board {
                         if (!left.exist) {
                             // 위 블록은 왼쪽 라인이 존재하면 연장 그렇지 않으면 새 라인 생성
                             if (up.exist && up.edgeExist[LEFT]) {
-                                console.log('up exist', up.exist)
                                 this.edges[up.edgeIds[LEFT]].y2 += 1;
                                 current.edgeIds[LEFT] = up.edgeIds[LEFT];
                                 current.edgeExist[LEFT] = true;
                             }
                             else {
-                                console.log('not up exist')
                                 const edge = new Edge(x, x, y, y + 1);
                                 const edgeId = this.edges.length;
                                 this.edges.push(edge);
@@ -171,6 +167,50 @@ class Board {
             }
         }
         console.log(this.edges)
+    }
+
+    calcVisibility = (originX, originY, radius) => {
+        this.store = [];
+        this.edges.forEach(edge => {
+            for (let i = 0; i < 2; i += 1) {
+                let rayDx = (i === 0 ? edge.x1 : edge.x2) - originX;
+                let rayDy = (i === 0 ? edge.y1 : edge.y2) - originY;
+                let baseAngle = Math.atan2(rayDy, rayDx);
+                let angle = 0;
+
+                for (let j = 0; j < 3; j += 1) {
+                    if (j === 0) angle = baseAngle - 0.000001;
+                    if (j === 1) angle = baseAngle;
+                    if (j === 2) angle = baseAngle + 0.000001;
+                    rayDx = radius * Math.cos(angle);
+                    rayDy = radius * Math.sin(angle);
+
+                    let minT1 = Infinity;
+                    let minPx = 0, minPy = 0, minAng = 0;
+
+                    this.edges.forEach(edge2 => {
+                        let sdx = edge2.x2 - edge2.x1;
+                        let sdy = edge2.y2 - edge2.y1;
+
+                        if (Math.abs(sdx - rayDx) > 0 && Math.abs(sdy - rayDy) > 0) {
+                            let t2 = (rayDx * (edge2.y1 - originY) + rayDy * (originX - edge2.x1)) / (sdx * rayDy - sdy * rayDx);
+                            let t1 = edge2.x1 + sdx * t2 - originX / rayDx;
+
+                            if (t1 > 0 && t2 >= 0 && t2 <= 1) {
+                                if (t1 < minT1) {
+                                    minT1 = t1;
+                                    minPx = originX + rayDx * t1;
+                                    minPy = originY + rayDy * t1;
+                                    minAng = Math.atan2(minPy - originY, minPx - originX)
+                                }
+                            }
+                        }
+                    })
+                    this.store.push(new RayData(minAng, minPx, minPy));
+                }
+            }
+        })
+        this.store.sort((a, b) => a.angle < b.angle);
     }
 
     render = () => this.canvas;
