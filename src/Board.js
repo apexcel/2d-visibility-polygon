@@ -16,24 +16,19 @@ const clickHandler = (e, board) => {
     if (e.button === 0) {
         board.world[y][x].exist = !board.world[y][x].exist;
         board.extractEdges();
-        board.calcVisibility(x, y, 1);
         draw.drawFrame(board);
     }
     if (e.button === 2) {
-        lightsOn = true;
-    }
-}
-
-const onLight = (e, board) => {
-    if (lightsOn) {
-        const targetX = e.offsetX, targetY = e.offsetY;
-        const x = Math.floor(targetX / BLOCK_SIZE), y = Math.floor(targetY / BLOCK_SIZE);
-        if (board.store.length > 1) {
-            e.preventDefault();
-            for (let i = 0; i < board.store.length - 1; i += 1) {
-                draw.fillTriangle(board.ctx, x, y, board.store[i].x, board.store[i].y, board.store[i + 1].x, board.store[i + 1].y)
+        lightsOn = !lightsOn;
+        board.calcVisibility(x, y, ROWS);
+        if (lightsOn) {
+            if (board.store.length > 1) {
+                e.preventDefault();
+                for (let i = 0; i < board.store.length - 1; i += 1) {
+                    draw.fillTriangle(board.ctx, x, y, board.store[i].x, board.store[i].y, board.store[i + 1].x, board.store[i + 1].y)
+                }
+                draw.fillTriangle(board.ctx, x, y, board.store[board.store.length - 1].x, board.store[board.store.length - 1].y, board.store[0].x, board.store[0].y)
             }
-            draw.fillTriangle(board.ctx, x, y, board.store[board.store.length - 1].x, board.store[board.store.length - 1].y, board.store[0].x, board.store[0].y)
         }
     }
 }
@@ -66,7 +61,6 @@ class Board {
         this.store = [];
         this.canvas.addEventListener('mousedown', e => clickHandler(e, this));
         this.canvas.addEventListener('mouseup', () => lightsOn = lightsOn ? false : lightsOn);
-        this.canvas.addEventListener('mousemove', e => onLight(e, this));
     }
 
     extractEdges = () => {
@@ -130,11 +124,12 @@ class Board {
                 let rayDy = (i === 0 ? edge.y1 : edge.y2) - originY;
                 let baseAngle = Math.atan2(rayDy, rayDx);
                 let angle = 0;
+                let isValid = false;
 
                 for (let j = 0; j < 3; j += 1) {
-                    if (j === 0) angle = baseAngle - 0.000001;
+                    if (j === 0) angle = baseAngle - 0.001;
                     if (j === 1) angle = baseAngle;
-                    if (j === 2) angle = baseAngle + 0.000001;
+                    if (j === 2) angle = baseAngle + 0.001;
                     rayDx = radius * Math.cos(angle);
                     rayDy = radius * Math.sin(angle);
 
@@ -146,7 +141,7 @@ class Board {
                         let sdy = edge2.y2 - edge2.y1;
 
                         if (Math.abs(sdx - rayDx) > 0 && Math.abs(sdy - rayDy) > 0) {
-                            let t2 = (rayDx * (edge2.y1 - originY)) + (rayDy * (originX - edge2.x1)) / (sdx * rayDy - sdy * rayDx);
+                            let t2 = ((rayDx * (edge2.y1 - originY)) + (rayDy * (originX - edge2.x1))) / (sdx * rayDy - sdy * rayDx);
                             let t1 = (edge2.x1 + sdx * t2 - originX) / rayDx;
 
                             if (t1 > 0 && t2 >= 0 && t2 <= 1) {
@@ -155,11 +150,12 @@ class Board {
                                     minPx = originX + rayDx * t1;
                                     minPy = originY + rayDy * t1;
                                     minAng = Math.atan2(minPy - originY, minPx - originX)
+                                    isValid = true;
                                 }
                             }
                         }
                     })
-                    this.store.push(new Ray(minAng, minPx, minPy));
+                    if (isValid) this.store.push(new Ray(minAng, minPx, minPy));
                 }
             }
         })
