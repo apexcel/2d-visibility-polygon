@@ -7,6 +7,7 @@
 This is an implementation of 2d visibility polygon. I ported [this](https://github.com/OneLoneCoder/olcPixelGameEngine/blob/master/Videos/OneLoneCoder_PGE_ShadowCasting2D.cpp) code to ES6+ my own way. You left-click to create blocks and right-click can toggle the source of light that tracks the mouse pointer. I recommend to read articles below.
 
 - "2d Visibility", <i>Red Blob Games</i>, https://www.redblobgames.com/articles/visibility/.
+- "Visibility Polygon", <i>Wikipedia</i>, https://en.wikipedia.org/wiki/Visibility_polygon/.
 
 ## Demo
 
