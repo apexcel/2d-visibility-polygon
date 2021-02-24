@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "http-server ./ -p 3000 -c-1",
-    "deploy" : "gh-pages -d ./"
+    "deploy" : "gh-pages -d ."
   },
   "homepage": "https://apexcel.github.io/2d-visibility-polygon/",
   "keywords": [],
