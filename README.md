@@ -10,4 +10,4 @@ This is an implementation of 2d visibility polygon. I ported [this](https://gith
 
 ## Demo
 
-You can check out the demo on [HERE](https://apexcel.github.io/2d-visibility-polygon/) or clone the repo then `npm i && npm run start`. It runs on port `3000`.
+You can check out the demo on [HERE](https://apexcel.github.io/2d-visibility-polygon-demo/) or clone the repo then `npm i && npm run start`. It runs on port `3000`.
