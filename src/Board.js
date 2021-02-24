@@ -13,7 +13,7 @@ const updateLight = (e, board) => {
     const targetX = e.offsetX, targetY = e.offsetY;
     const x = targetX / BLOCK_SIZE, y = targetY / BLOCK_SIZE;
     if (lightsOn) {
-        board.calcVisibility(x, y, 1000);
+        board.calcVisibility(x, y, 1);
         if (board.store.length > 1) {
             e.preventDefault();
             draw.drawFrame(board);
@@ -142,9 +142,9 @@ class Board {
                 let angle = 0;
 
                 for (let j = 0; j < 3; j += 1) {
-                    if (j === 0) angle = baseAngle - 0.0001;
+                    if (j === 0) angle = baseAngle - 0.000001;
                     if (j === 1) angle = baseAngle;
-                    if (j === 2) angle = baseAngle + 0.0001;
+                    if (j === 2) angle = baseAngle + 0.000001;
                     rayDx = radius * Math.cos(angle);
                     rayDy = radius * Math.sin(angle);
 

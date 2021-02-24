@@ -17,13 +17,15 @@ export function fillRect(context, x, y, size, fillStyle) {
 
 export function fillTriangle(context, sourceX, sourceY, x2, y2, x3, y3, fillStyle) {
     context.save();
+    // context.lineWidth = 0.01;
     context.fillStyle = fillStyle ? fillStyle : '#ffffff2c';
     context.beginPath();
     context.moveTo(sourceX, sourceY);
     context.lineTo(x2, y2);
     context.lineTo(x3, y3);
+    // context.stroke();
     context.fill();
-    context.closePath();
+    // context.closePath();
     context.restore();
 }
 
