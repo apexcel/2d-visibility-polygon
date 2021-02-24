@@ -1,4 +1,4 @@
-import { BLOCK_SIZE, WIDTH, HEIGHT, ROWS, COLS } from './configs.js';
+import { BLOCK_SIZE, WIDTH, HEIGHT, ROWS, COLS, WALLS } from './configs.js';
 import Edge from './Edge.js'
 import Ray from './Ray.js'
 import * as draw from './draw.js';
@@ -9,27 +9,36 @@ const DOWN = 2;
 const RIGHT = 3;
 let lightsOn = false;
 
+const updateLight = (e, board) => {
+    const targetX = e.offsetX, targetY = e.offsetY;
+    const x = targetX / BLOCK_SIZE, y = targetY / BLOCK_SIZE;
+    if (lightsOn) {
+        board.calcVisibility(x, y, 1000);
+        if (board.store.length > 1) {
+            e.preventDefault();
+            draw.drawFrame(board);
+            for (let i = 0; i < board.store.length - 1; i += 1) {
+                draw.fillTriangle(board.ctx, x, y, board.store[i].x, board.store[i].y, board.store[i + 1].x, board.store[i + 1].y)
+            }
+            draw.fillTriangle(board.ctx, x, y, board.store[board.store.length - 1].x, board.store[board.store.length - 1].y, board.store[0].x, board.store[0].y)
+        }
+    }
+}
+
 const clickHandler = (e, board) => {
     const targetX = e.offsetX, targetY = e.offsetY;
     const x = Math.floor(targetX / BLOCK_SIZE), y = Math.floor(targetY / BLOCK_SIZE);
 
-    if (e.button === 0) {
+    if (e.button === 0 && !board.world[y][x].concrete) {
         board.world[y][x].exist = !board.world[y][x].exist;
         board.extractEdges();
         draw.drawFrame(board);
     }
     if (e.button === 2) {
-        lightsOn = !lightsOn;
-        board.calcVisibility(x, y, ROWS);
         if (lightsOn) {
-            if (board.store.length > 1) {
-                e.preventDefault();
-                for (let i = 0; i < board.store.length - 1; i += 1) {
-                    draw.fillTriangle(board.ctx, x, y, board.store[i].x, board.store[i].y, board.store[i + 1].x, board.store[i + 1].y)
-                }
-                draw.fillTriangle(board.ctx, x, y, board.store[board.store.length - 1].x, board.store[board.store.length - 1].y, board.store[0].x, board.store[0].y)
-            }
+            draw.drawFrame(board);
         }
+        lightsOn = !lightsOn;
     }
 }
 
@@ -47,7 +56,7 @@ class Board {
     }
 
     init = () => {
-        this.world = Array.from(Array(COLS), () => Array(ROWS));
+        this.world = Array.from(Array(ROWS), () => Array(COLS));
         for (let y = 0; y < ROWS; y += 1) {
             for (let x = 0; x < COLS; x += 1) {
                 this.world[y][x] = {
@@ -55,17 +64,24 @@ class Board {
                     edgeExist: [false, false, false, false],
                     edgeIds: [-1, -1, -1, -1],
                 };
+
+                if (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) {
+                    this.world[y][x] = {
+                        exist: false,
+                        concrete: true,
+                    }
+                }
             }
         }
-        this.edges = [];
         this.store = [];
+        this.edges = [...WALLS];
         this.canvas.addEventListener('mousedown', e => clickHandler(e, this));
-        this.canvas.addEventListener('mouseup', () => lightsOn = lightsOn ? false : lightsOn);
+        this.canvas.addEventListener('mousemove', e => updateLight(e, this));
+        draw.drawFrame(this);
     }
 
     extractEdges = () => {
-        this.edges = [];
-
+        this.edges = [...WALLS];
         const check = (current, edges, adj, ext, dir, coor) => {
             if (!adj.exist) {
                 if (ext.exist && ext.edgeExist[dir]) {
@@ -116,50 +132,52 @@ class Board {
         }
     }
 
-    calcVisibility = (originX, originY, radius) => {
+    calcVisibility = (sourceX, sourceY, radius) => {
         this.store = [];
         this.edges.forEach(edge => {
             for (let i = 0; i < 2; i += 1) {
-                let rayDx = (i === 0 ? edge.x1 : edge.x2) - originX;
-                let rayDy = (i === 0 ? edge.y1 : edge.y2) - originY;
+                let rayDx = (i === 0 ? edge.x1 : edge.x2) - sourceX;
+                let rayDy = (i === 0 ? edge.y1 : edge.y2) - sourceY;
                 let baseAngle = Math.atan2(rayDy, rayDx);
                 let angle = 0;
-                let isValid = false;
 
                 for (let j = 0; j < 3; j += 1) {
-                    if (j === 0) angle = baseAngle - 0.001;
+                    if (j === 0) angle = baseAngle - 0.0001;
                     if (j === 1) angle = baseAngle;
-                    if (j === 2) angle = baseAngle + 0.001;
+                    if (j === 2) angle = baseAngle + 0.0001;
                     rayDx = radius * Math.cos(angle);
                     rayDy = radius * Math.sin(angle);
 
                     let minT1 = Infinity;
                     let minPx = 0, minPy = 0, minAng = 0;
+                    let isValid = false;
 
                     this.edges.forEach(edge2 => {
                         let sdx = edge2.x2 - edge2.x1;
                         let sdy = edge2.y2 - edge2.y1;
 
                         if (Math.abs(sdx - rayDx) > 0 && Math.abs(sdy - rayDy) > 0) {
-                            let t2 = ((rayDx * (edge2.y1 - originY)) + (rayDy * (originX - edge2.x1))) / (sdx * rayDy - sdy * rayDx);
-                            let t1 = (edge2.x1 + sdx * t2 - originX) / rayDx;
+                            let t2 = (rayDx * (edge2.y1 - sourceY) + (rayDy * (sourceX - edge2.x1))) / (sdx * rayDy - sdy * rayDx);
+                            let t1 = (edge2.x1 + sdx * t2 - sourceX) / rayDx;
 
                             if (t1 > 0 && t2 >= 0 && t2 <= 1) {
                                 if (t1 < minT1) {
                                     minT1 = t1;
-                                    minPx = originX + rayDx * t1;
-                                    minPy = originY + rayDy * t1;
-                                    minAng = Math.atan2(minPy - originY, minPx - originX)
+                                    minPx = sourceX + rayDx * t1;
+                                    minPy = sourceY + rayDy * t1;
+                                    minAng = Math.atan2(minPy - sourceY, minPx - sourceX)
                                     isValid = true;
                                 }
                             }
                         }
                     })
-                    if (isValid) this.store.push(new Ray(minAng, minPx, minPy));
+                    if (isValid) {
+                        this.store.push(new Ray(minAng, minPx, minPy));
+                    }
                 }
             }
         })
-        this.store.sort((a, b) => a.angle < b.angle);
+        this.store.sort((a, b) => a.angle - b.angle);
     }
 
     render = () => this.canvas;

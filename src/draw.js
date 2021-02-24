@@ -1,6 +1,6 @@
 import { BLOCK_SIZE, WIDTH, HEIGHT } from './configs.js';
 
-function fillCircle(context, x, y, radius, fillStyle) {
+export function fillCircle(context, x, y, radius, fillStyle) {
     context.beginPath();
     context.fillStyle = fillStyle ? fillStyle : '#534bae';
     context.arc(x, y, radius, 0, 2 * Math.PI);
@@ -8,23 +8,21 @@ function fillCircle(context, x, y, radius, fillStyle) {
     context.closePath();
 }
 
-export function fillRect(context, x, y, size, color) {
+export function fillRect(context, x, y, size, fillStyle) {
     context.beginPath();
-    context.fillStyle = color ? color : '#616161';
+    context.fillStyle = fillStyle ? fillStyle : '#616161';
     context.fillRect(x, y, size, size);
     context.closePath();
 }
 
-export function fillTriangle(context, x1, y1, x2, y2, x3, y3, fillStyle) {
+export function fillTriangle(context, sourceX, sourceY, x2, y2, x3, y3, fillStyle) {
     context.save();
-    // context.fillStyle = fillStyle ? fillStyle : 'white';
+    context.fillStyle = fillStyle ? fillStyle : '#ffffff2c';
     context.beginPath();
-    context.strokeStyle = 'white';
-    context.moveTo(x1, y1);
+    context.moveTo(sourceX, sourceY);
     context.lineTo(x2, y2);
     context.lineTo(x3, y3);
-    context.stroke();
-    // context.fill();
+    context.fill();
     context.closePath();
     context.restore();
 }
@@ -54,9 +52,15 @@ export function drawBlock(context, edgeList) {
 export function drawWorldMap(context, world) {
     world.forEach((row, y) => {
         row.forEach((col, x) => {
-            col.exist 
-            ? fillRect(context, x, y, BLOCK_SIZE)
-            : context.clearRect(x, y, 1, 1);
+            if (col.exist) {
+                fillRect(context, x, y, BLOCK_SIZE)
+            }
+            else {
+                context.clearRect(x, y, 1, 1);
+                if (col.concrete) {
+                    fillRect(context, x, y, BLOCK_SIZE, '#40241a');
+                }
+            }
         })
     })
 }
