@@ -7,7 +7,7 @@
     "start": "http-server ./ -p 3000 -c-1",
     "deploy" : "gh-pages -d ."
   },
-  "homepage": "https://apexcel.github.io/2d-visibility-polygon/",
+  "homepage": "https://apexcel.github.io/2d-visibility-polygon-demo/",
   "keywords": [],
   "author": "",
   "license": "ISC",
